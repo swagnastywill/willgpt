@@ -71,8 +71,19 @@ export function getStatus(
   }
 
   const bucket = Math.floor(now.getTime() / (1000 * 60 * 5));
-  const afkRoll = pseudoRandom(bucket ^ userSalt, 31337);
-  if (afkRoll < 0.16) {
+  const rollAt = (b: number) => pseudoRandom(b ^ userSalt, 31337);
+  const isAfkBucket = (b: number) => rollAt(b) < 0.16;
+
+  const COOLDOWN_BUCKETS = 3;
+  let recentlyAfk = false;
+  for (let i = 1; i <= COOLDOWN_BUCKETS; i++) {
+    if (isAfkBucket(bucket - i)) {
+      recentlyAfk = true;
+      break;
+    }
+  }
+
+  if (!recentlyAfk && isAfkBucket(bucket)) {
     return {
       state: "afk",
       label: "willy is afk",
