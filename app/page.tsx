@@ -21,8 +21,8 @@ export default function Home() {
         </h1>
 
         <p className="text-base sm:text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
-          hey im willy. ai sucks. i&apos;ll just answer your questions myself.
-          text me anything, ill get back when i can.
+          hey im willy. i&apos;ll just answer your questions myself. text me
+          anything, ill get back when i can.
         </p>
 
         <Link
