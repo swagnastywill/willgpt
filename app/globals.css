@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --bubble-them: #e9e9eb;
+  --bubble-me: #007aff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #ededed;
+    --bubble-them: #1c1c1e;
+    --bubble-me: #0a84ff;
+  }
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), -apple-system, BlinkMacSystemFont,
+    "SF Pro Display", sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* iMessage typing dots */
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.typing-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8e8e93;
+  display: inline-block;
+  animation: typing 1.3s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.bubble-tail-them::before,
+.bubble-tail-me::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  background: inherit;
+}
