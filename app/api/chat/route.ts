@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 import { randomUUID } from "node:crypto";
 import { ensureSchema, sql, type MessageRow } from "@/lib/db";
 import { getOrCreateSessionId } from "@/lib/session";
@@ -124,73 +123,77 @@ export async function POST(req: NextRequest) {
     )
   `;
 
-  after(async () => {
-    try {
-      const history = (await sql`
-        SELECT user_text, response, has_image
-        FROM messages
-        WHERE session_id = ${sessionId}
-          AND id <> ${messageId}
-          AND response IS NOT NULL
-          AND status = 'ready'
-        ORDER BY created_at DESC
-        LIMIT 8
-      `) as Pick<MessageRow, "user_text" | "response" | "has_image">[];
+  try {
+    const history = (await sql`
+      SELECT user_text, response, has_image
+      FROM messages
+      WHERE session_id = ${sessionId}
+        AND id <> ${messageId}
+        AND response IS NOT NULL
+        AND status = 'ready'
+      ORDER BY created_at DESC
+      LIMIT 8
+    `) as Pick<MessageRow, "user_text" | "response" | "has_image">[];
 
-      const ordered = history.reverse();
-      const messages: { role: "user" | "assistant"; content: string | AnthropicUserBlock[] }[] = [];
-      for (const h of ordered) {
-        messages.push({
-          role: "user",
-          content: h.user_text || (h.has_image ? "[sent an image]" : ""),
-        });
-        if (h.response) {
-          messages.push({ role: "assistant", content: h.response });
-        }
-      }
-
-      const currentContent: AnthropicUserBlock[] = [];
-      if (image) {
-        currentContent.push({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: image.mediaType,
-            data: image.base64,
-          },
-        });
-      }
-      currentContent.push({ type: "text", text: text || "(image only, no text)" });
-      messages.push({ role: "user", content: currentContent });
-
-      const result = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 220,
-        system: SYSTEM_PROMPT,
-        messages,
+    const ordered = history.reverse();
+    const messages: {
+      role: "user" | "assistant";
+      content: string | AnthropicUserBlock[];
+    }[] = [];
+    for (const h of ordered) {
+      messages.push({
+        role: "user",
+        content: h.user_text || (h.has_image ? "[sent an image]" : ""),
       });
-
-      const responseText = result.content
-        .map((b) => (b.type === "text" ? b.text : ""))
-        .join("")
-        .trim();
-
-      await sql`
-        UPDATE messages
-        SET response = ${responseText || "lol my bad got distracted"},
-            status = 'ready'
-        WHERE id = ${messageId}
-      `;
-    } catch (err) {
-      console.error("[chat] generation failed", err);
-      await sql`
-        UPDATE messages
-        SET response = 'sry phone died lol try again',
-            status = 'error'
-        WHERE id = ${messageId}
-      `.catch(() => {});
+      if (h.response) {
+        messages.push({ role: "assistant", content: h.response });
+      }
     }
-  });
+
+    const currentContent: AnthropicUserBlock[] = [];
+    if (image) {
+      currentContent.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: image.mediaType,
+          data: image.base64,
+        },
+      });
+    }
+    currentContent.push({
+      type: "text",
+      text: text || "(image only, no text)",
+    });
+    messages.push({ role: "user", content: currentContent });
+
+    const result = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 220,
+      system: SYSTEM_PROMPT,
+      messages,
+    });
+
+    const responseText = result.content
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("")
+      .trim();
+
+    await sql`
+      UPDATE messages
+      SET response = ${responseText || "lol my bad got distracted"},
+          status = 'ready'
+      WHERE id = ${messageId}
+    `;
+  } catch (err) {
+    console.error("[chat] generation failed", err);
+    await sql`
+      UPDATE messages
+      SET response = 'sry phone died lol try again',
+          status = 'error'
+      WHERE id = ${messageId}
+    `.catch(() => {});
+  }
 
   return NextResponse.json({
     messageId,
