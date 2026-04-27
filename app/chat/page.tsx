@@ -4,11 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+type StatusState = "locked_in" | "afk" | "sleeping";
+
 type Bubble =
   | { kind: "me"; text: string; imageUrl?: string }
   | { kind: "them"; text: string }
-  | { kind: "queued"; messageId: string; shownWaitSeconds: number }
-  | { kind: "typing" }
+  | {
+      kind: "pending";
+      messageId: string;
+      shownWaitSeconds: number;
+      status: StatusState;
+      statusLabel: string;
+    }
   | { kind: "system"; text: string };
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -85,7 +92,7 @@ export default function ChatPage() {
             kind: "system",
             text:
               data.error ||
-              "lol something broke. i didnt use ai to code this so its kinda mid. try again.",
+              "lol something broke. i didnt use ai to code this so its kinda bad. try again.",
           },
         ]);
         setPending(false);
@@ -94,13 +101,17 @@ export default function ChatPage() {
       const data = (await res.json()) as {
         messageId: string;
         shownWaitSeconds: number;
+        status: StatusState;
+        statusLabel: string;
       };
       setBubbles((b) => [
         ...b,
         {
-          kind: "queued",
+          kind: "pending",
           messageId: data.messageId,
           shownWaitSeconds: data.shownWaitSeconds,
+          status: data.status,
+          statusLabel: data.statusLabel,
         },
       ]);
     } catch {
@@ -138,12 +149,7 @@ export default function ChatPage() {
     setBubbles((prev) => {
       const next: Bubble[] = [];
       for (const b of prev) {
-        if (
-          (b.kind === "queued" && b.messageId === messageId) ||
-          b.kind === "typing"
-        ) {
-          continue;
-        }
+        if (b.kind === "pending" && b.messageId === messageId) continue;
         next.push(b);
       }
       next.push({ kind: "them", text: response });
@@ -152,41 +158,23 @@ export default function ChatPage() {
     setPending(false);
   }, []);
 
-  const onTransitionToTyping = useCallback((messageId: string) => {
-    setBubbles((prev) => {
-      const next: Bubble[] = [];
-      let replaced = false;
-      for (const b of prev) {
-        if (b.kind === "queued" && b.messageId === messageId) {
-          if (!replaced) {
-            next.push({ kind: "typing" });
-            replaced = true;
-          }
-          continue;
-        }
-        next.push(b);
-      }
-      return next;
-    });
-  }, []);
-
   return (
     <div className="flex flex-col h-[100dvh] max-w-2xl mx-auto">
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-black/10 dark:border-white/10 sticky top-0 bg-[var(--background)]/90 backdrop-blur z-10">
+      <header className="flex items-center gap-2 px-3 py-3 border-b border-black/10 dark:border-white/10 sticky top-0 bg-[var(--background)]/90 backdrop-blur z-10">
         <Link
           href="/"
-          className="text-[#007aff] text-sm shrink-0"
+          className="text-[#007aff] text-sm shrink-0 px-1"
           aria-label="back"
         >
           ← back
         </Link>
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <div className="relative w-7 h-7 rounded-full overflow-hidden">
+        <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+          <div className="relative w-7 h-7 rounded-full overflow-hidden shrink-0">
             <Image src="/will.png" alt="willy" fill sizes="28px" className="object-cover" />
           </div>
           <span className="font-display text-lg">willy</span>
         </div>
-        <div className="w-10" />
+        <StatusPill />
       </header>
 
       <div
@@ -194,12 +182,7 @@ export default function ChatPage() {
         className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5"
       >
         {bubbles.map((b, i) => (
-          <BubbleView
-            key={i}
-            bubble={b}
-            onResolved={onResolved}
-            onTransitionToTyping={onTransitionToTyping}
-          />
+          <BubbleView key={i} bubble={b} onResolved={onResolved} />
         ))}
       </div>
 
@@ -273,11 +256,9 @@ export default function ChatPage() {
 function BubbleView({
   bubble,
   onResolved,
-  onTransitionToTyping,
 }: {
   bubble: Bubble;
   onResolved: (messageId: string, response: string) => void;
-  onTransitionToTyping: (messageId: string) => void;
 }) {
   if (bubble.kind === "me") {
     return (
@@ -316,39 +297,32 @@ function BubbleView({
       </div>
     );
   }
-  if (bubble.kind === "typing") {
-    return (
-      <div className="flex justify-start">
-        <div className="bg-[var(--bubble-them)] px-4 py-3 rounded-2xl">
-          <span className="typing-dots">
-            <span /> <span /> <span />
-          </span>
-        </div>
-      </div>
-    );
-  }
   return (
-    <QueuedBubble
+    <PendingBubble
       messageId={bubble.messageId}
       shownWaitSeconds={bubble.shownWaitSeconds}
+      status={bubble.status}
+      statusLabel={bubble.statusLabel}
       onResolved={onResolved}
-      onTransitionToTyping={onTransitionToTyping}
     />
   );
 }
 
-function QueuedBubble({
+function PendingBubble({
   messageId,
   shownWaitSeconds,
+  status,
+  statusLabel,
   onResolved,
-  onTransitionToTyping,
 }: {
   messageId: string;
   shownWaitSeconds: number;
+  status: StatusState;
+  statusLabel: string;
   onResolved: (messageId: string, response: string) => void;
-  onTransitionToTyping: (messageId: string) => void;
 }) {
   const [remaining, setRemaining] = useState(shownWaitSeconds);
+  const [phase, setPhase] = useState<"queued" | "typing">("queued");
 
   useEffect(() => {
     const tick = setInterval(() => {
@@ -379,32 +353,101 @@ function QueuedBubble({
           return;
         }
         if (data.phase === "typing") {
-          onTransitionToTyping(messageId);
-          return;
+          setPhase("typing");
+        } else {
+          setPhase("queued");
         }
-        timer = setTimeout(poll, 2000);
+        timer = setTimeout(poll, 1500);
       } catch {
         timer = setTimeout(poll, 3000);
       }
     };
 
-    timer = setTimeout(poll, 1500);
+    timer = setTimeout(poll, 1200);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [messageId, onResolved, onTransitionToTyping]);
+  }, [messageId, onResolved]);
 
   const label = useMemo(() => {
-    if (remaining <= 0) return "willy is busy...";
-    return `willy is busy. ~${remaining}s wait`;
-  }, [remaining]);
+    if (status === "sleeping") return statusLabel;
+    if (status === "afk") {
+      if (remaining <= 0) return "willy is afk...";
+      if (remaining >= 60) {
+        const mins = Math.ceil(remaining / 60);
+        return `willy is afk. ~${mins} min wait`;
+      }
+      return `willy is afk. ~${remaining}s wait`;
+    }
+    if (remaining <= 0) return "willy is responding to other messages...";
+    return `willy is responding to other messages. ~${remaining}s wait`;
+  }, [remaining, status, statusLabel]);
+
+  if (phase === "typing") {
+    return (
+      <div className="flex justify-start">
+        <div className="bg-[var(--bubble-them)] px-4 py-3 rounded-2xl">
+          <span className="typing-dots">
+            <span /> <span /> <span />
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-center">
       <div className="text-xs text-neutral-500 px-3 py-1.5 rounded-full bg-black/5 dark:bg-white/5">
         {label}
       </div>
+    </div>
+  );
+}
+
+function StatusPill() {
+  const [status, setStatus] = useState<{
+    state: "locked_in" | "afk" | "sleeping";
+    label: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchOnce = async () => {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setStatus(data);
+      } catch {}
+    };
+    fetchOnce();
+    const interval = setInterval(fetchOnce, 60000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  if (!status) return <div className="w-10 shrink-0" />;
+
+  const dotColor =
+    status.state === "locked_in"
+      ? "bg-green-500"
+      : status.state === "afk"
+        ? "bg-yellow-500"
+        : "bg-neutral-500";
+
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/5 dark:bg-white/10 shrink-0 max-w-[55%] sm:max-w-none">
+      <span
+        className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor} ${
+          status.state === "locked_in" ? "animate-pulse" : ""
+        }`}
+      />
+      <span className="text-[10px] sm:text-xs uppercase tracking-wider text-neutral-600 dark:text-neutral-400 truncate">
+        {status.label}
+      </span>
     </div>
   );
 }

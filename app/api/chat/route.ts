@@ -5,11 +5,12 @@ import { getOrCreateSessionId } from "@/lib/session";
 import { anthropic, MODEL } from "@/lib/anthropic";
 import { SYSTEM_PROMPT } from "@/lib/persona";
 import { computeQueueTimes } from "@/lib/queue";
+import { getStatus } from "@/lib/status";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MAX_TEXT = 1500;
+const MAX_TEXT = 50000;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -82,30 +83,9 @@ export async function POST(req: NextRequest) {
   await ensureSchema();
   const sessionId = await getOrCreateSessionId();
 
-  const recent = (await sql`
-    SELECT COUNT(*)::int AS c FROM messages
-    WHERE session_id = ${sessionId}
-      AND created_at > now() - interval '10 minutes'
-  `) as { c: number }[];
-  if (recent[0]?.c >= 5) {
-    return NextResponse.json(
-      { error: "chill bro im typing. wait a few min" },
-      { status: 429 },
-    );
-  }
-  const daily = (await sql`
-    SELECT COUNT(*)::int AS c FROM messages
-    WHERE session_id = ${sessionId}
-      AND created_at > now() - interval '1 day'
-  `) as { c: number }[];
-  if (daily[0]?.c >= 25) {
-    return NextResponse.json(
-      { error: "ok we talked enough today. hmu tomorrow" },
-      { status: 429 },
-    );
-  }
-
-  const { queuedSeconds, totalSeconds, shownWaitSeconds } = computeQueueTimes();
+  const status = getStatus(new Date(), sessionId);
+  const { queuedSeconds, totalSeconds, shownWaitSeconds } =
+    computeQueueTimes(status);
   const messageId = randomUUID();
 
   await sql`
@@ -169,7 +149,7 @@ export async function POST(req: NextRequest) {
 
     const result = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 220,
+      max_tokens: 120,
       system: SYSTEM_PROMPT,
       messages,
     });
@@ -198,5 +178,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     messageId,
     shownWaitSeconds,
+    status: status.state,
+    statusLabel: status.label,
   });
 }
