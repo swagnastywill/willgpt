@@ -34,7 +34,7 @@ export default function ChatPage() {
   const [bubbles, setBubbles] = useState<Bubble[]>([
     {
       kind: "them",
-      text: "yo whats up",
+      text: "welcome 2 willygpt! ask me anything",
     },
   ]);
   const [text, setText] = useState("");
@@ -81,7 +81,12 @@ export default function ChatPage() {
         const data = await res.json().catch(() => ({}));
         setBubbles((b) => [
           ...b,
-          { kind: "system", text: data.error || "something broke. try again." },
+          {
+            kind: "system",
+            text:
+              data.error ||
+              "lol something broke. i didnt use ai to code this so its kinda mid. try again.",
+          },
         ]);
         setPending(false);
         return;
@@ -101,7 +106,10 @@ export default function ChatPage() {
     } catch {
       setBubbles((b) => [
         ...b,
-        { kind: "system", text: "no signal. try again." },
+        {
+          kind: "system",
+          text: "rip. site is broken. i built this myself ok. refresh maybe.",
+        },
       ]);
       setPending(false);
     }
@@ -111,7 +119,7 @@ export default function ChatPage() {
     if (file.size > MAX_IMAGE_BYTES) {
       setBubbles((b) => [
         ...b,
-        { kind: "system", text: "image too big (max 4mb)" },
+        { kind: "system", text: "image too thicc (4mb max). compress it lol" },
       ]);
       return;
     }
@@ -121,7 +129,7 @@ export default function ChatPage() {
     } catch {
       setBubbles((b) => [
         ...b,
-        { kind: "system", text: "couldnt read that image" },
+        { kind: "system", text: "what kinda image is that bro" },
       ]);
     }
   }, []);
@@ -174,9 +182,9 @@ export default function ChatPage() {
         </Link>
         <div className="flex-1 flex items-center justify-center gap-2">
           <div className="relative w-7 h-7 rounded-full overflow-hidden">
-            <Image src="/will.png" alt="will" fill sizes="28px" className="object-cover" />
+            <Image src="/will.png" alt="willy" fill sizes="28px" className="object-cover" />
           </div>
-          <span className="font-display text-lg">will</span>
+          <span className="font-display text-lg">willy</span>
         </div>
         <div className="w-10" />
       </header>

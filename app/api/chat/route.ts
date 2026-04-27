@@ -39,29 +39,38 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as ChatRequest;
   } catch {
-    return NextResponse.json({ error: "bad json" }, { status: 400 });
+    return NextResponse.json(
+      { error: "your phone sent garbage. try again." },
+      { status: 400 },
+    );
   }
 
   const text = (body.text ?? "").toString().trim();
   if (!text && !body.image) {
-    return NextResponse.json({ error: "empty message" }, { status: 400 });
+    return NextResponse.json(
+      { error: "u didnt say anything bro" },
+      { status: 400 },
+    );
   }
   if (text.length > MAX_TEXT) {
-    return NextResponse.json({ error: "message too long" }, { status: 400 });
+    return NextResponse.json(
+      { error: "ok thats too much to read" },
+      { status: 400 },
+    );
   }
 
   let image: ImagePayload | null = null;
   if (body.image) {
     if (!ALLOWED_IMAGE_TYPES.has(body.image.mediaType)) {
       return NextResponse.json(
-        { error: "unsupported image type" },
+        { error: "what kinda file is that. png/jpg/webp/gif only" },
         { status: 400 },
       );
     }
     const approxBytes = Math.floor((body.image.base64.length * 3) / 4);
     if (approxBytes > MAX_IMAGE_BYTES) {
       return NextResponse.json(
-        { error: "image too large (max 4mb)" },
+        { error: "image too thicc (4mb max)" },
         { status: 400 },
       );
     }
@@ -81,7 +90,7 @@ export async function POST(req: NextRequest) {
   `) as { c: number }[];
   if (recent[0]?.c >= 5) {
     return NextResponse.json(
-      { error: "slow down. wait a few min." },
+      { error: "chill bro im typing. wait a few min" },
       { status: 429 },
     );
   }
@@ -92,7 +101,7 @@ export async function POST(req: NextRequest) {
   `) as { c: number }[];
   if (daily[0]?.c >= 25) {
     return NextResponse.json(
-      { error: "you maxed out for today, try tmrw" },
+      { error: "ok we talked enough today. hmu tomorrow" },
       { status: 429 },
     );
   }
