@@ -18,7 +18,7 @@ type Bubble =
     }
   | { kind: "system"; text: string };
 
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_BYTES = Math.floor(2.5 * 1024 * 1024);
 
 async function fileToBase64(
   file: File,
@@ -130,7 +130,7 @@ export default function ChatPage() {
     if (file.size > MAX_IMAGE_BYTES) {
       setBubbles((b) => [
         ...b,
-        { kind: "system", text: "image too thicc (4mb max). compress it lol" },
+        { kind: "system", text: "image too thicc (2.5mb max). compress it lol" },
       ]);
       return;
     }

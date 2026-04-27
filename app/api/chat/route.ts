@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_TEXT = 50000;
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_BYTES = Math.floor(2.5 * 1024 * 1024);
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     const approxBytes = Math.floor((body.image.base64.length * 3) / 4);
     if (approxBytes > MAX_IMAGE_BYTES) {
       return NextResponse.json(
-        { error: "image too thicc (4mb max)" },
+        { error: "image too thicc (2.5mb max)" },
         { status: 400 },
       );
     }
