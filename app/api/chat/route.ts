@@ -147,10 +147,16 @@ export async function POST(req: NextRequest) {
     });
     messages.push({ role: "user", content: currentContent });
 
+    const isFirstInSession = ordered.length === 0;
+    const systemPrompt = isFirstInSession
+      ? SYSTEM_PROMPT +
+        `\n\n# this turn only\nthis is the first message from this user. after answering naturally, ALSO casually ask who they are in the same reply. examples: "btw who is this lol", "wait who am i texting", "lol who u", "wait sorry who is this". keep it short, do not announce that you're asking, just slip it in. do this only on this very first reply.`
+      : SYSTEM_PROMPT;
+
     const result = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 120,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages,
     });
 

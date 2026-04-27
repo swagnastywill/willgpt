@@ -1,20 +1,11 @@
-import Image from "next/image";
 import Link from "next/link";
+import PhotoTrigger from "./photo-trigger";
 
 export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 text-center">
       <div className="max-w-md w-full flex flex-col items-center gap-6">
-        <div className="relative w-40 h-40 sm:w-48 sm:h-48 rounded-full overflow-hidden ring-1 ring-black/10 dark:ring-white/10">
-          <Image
-            src="/will.png"
-            alt="willy"
-            fill
-            sizes="(max-width: 640px) 160px, 192px"
-            priority
-            className="object-cover"
-          />
-        </div>
+        <PhotoTrigger />
 
         <h1 className="font-display text-5xl sm:text-7xl tracking-tight">
           i am replacing ai
